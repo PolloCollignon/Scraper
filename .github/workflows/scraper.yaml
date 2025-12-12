@@ -26,7 +26,7 @@ jobs:
         run: python scraper.py
 
       - name: Subir archivo Excel como artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: inventario-excel
           path: "*.xlsx"
