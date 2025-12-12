@@ -1,0 +1,32 @@
+name: Ejecutar scraper dos veces al día
+
+on:
+  schedule:
+    - cron: "0 17 * * *"  # 11:00 a.m. CDMX
+    - cron: "0 20 * * *"  # 2:00 p.m. CDMX
+  workflow_dispatch:
+
+jobs:
+  run-scraper:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v3
+
+      - name: Configurar Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+
+      - name: Ejecutar el script
+        run: python scraper.py
+
+      - name: Subir archivo Excel como artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: inventario-excel
+          path: "*.xlsx"
