@@ -25,8 +25,8 @@ jobs:
       - name: Ejecutar el script
         run: python scraper.py
 
-      - name: Subir archivo Excel como artifact
-        uses: actions/upload-artifact@v4
+      - name: Upload DB
+        uses: actions/upload-artifact@v3
         with:
-          name: inventario-excel
-          path: "*.xlsx"
+            name: inventario-db
+            path: inventario.db
