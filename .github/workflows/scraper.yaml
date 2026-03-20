@@ -22,11 +22,20 @@ jobs:
       - name: Instalar dependencias
         run: pip install -r requirements.txt
 
+      # 🔥 DESCARGAR DB ANTERIOR (CLAVE)
+      - name: Download previous DB
+        uses: actions/download-artifact@v3
+        with:
+          name: inventario-db
+          path: .
+        continue-on-error: true
+
       - name: Ejecutar el script
         run: python scraper.py
 
-      - name: Subir archivo Excel como artifact
-        uses: actions/upload-artifact@v4
+      # 🔥 SUBIR DB ACTUALIZADA
+      - name: Upload DB
+        uses: actions/upload-artifact@v3
         with:
-          name: inventario-excel
-          path: "*.xlsx"
+          name: inventario-db
+          path: inventario.db
