@@ -1,77 +1,144 @@
 import requests
 from bs4 import BeautifulSoup
 import json
+import sqlite3
 import pandas as pd
 from datetime import datetime
-import os
+import time
 
 print("El script ha iniciado correctamente.")
 
-# Función para obtener productos desde una URL con paginación
+# -----------------------------
+# CONFIG
+# -----------------------------
+HEADERS = {
+    "User-Agent": "Mozilla/5.0"
+}
+
+BASE_URL = "https://lebump.com.mx"
+
+
+# -----------------------------
+# GUARDAR EN BASE DE DATOS
+# -----------------------------
+def save_to_db(df):
+    conn = sqlite3.connect("inventario.db")
+
+    df.to_sql(
+        "inventario",
+        conn,
+        if_exists="append",
+        index=False
+    )
+
+    conn.close()
+
+
+# -----------------------------
+# OBTENER TODOS LOS PRODUCTOS
+# -----------------------------
 def get_all_products():
     all_products = []
-    base_url = "https://lebump.com.mx/products.json"
+    base_url = f"{BASE_URL}/products.json"
     page = 1
-    limit = 350
+    limit = 250  # más seguro que 350
 
     while True:
-        response = requests.get(f"{base_url}?page={page}&limit={limit}")
+        url = f"{base_url}?page={page}&limit={limit}"
+        response = requests.get(url, headers=HEADERS)
+
+        if response.status_code != 200:
+            print(f"Error al obtener productos (page {page})")
+            break
+
         data = response.json()
 
-        if not data['products']:
+        if not data.get('products'):
             break
 
         all_products.extend(data['products'])
+        print(f"Página {page} procesada ({len(data['products'])} productos)")
+
         page += 1
+        time.sleep(0.5)  # evitar bloqueos
 
     return all_products
 
-# Función para extraer inventario de un producto
-def extract_inventory(product_url, product_data):
+
+# -----------------------------
+# EXTRAER INVENTARIO
+# -----------------------------
+def extract_inventory(product, product_data):
     try:
-        product_page = requests.get(product_url)
-        soup = BeautifulSoup(product_page.text, 'html.parser')
+        handle = product['handle']
+        product_url = f"{BASE_URL}/products/{handle}"
+
+        response = requests.get(product_url, headers=HEADERS)
+
+        if response.status_code != 200:
+            print(f"Error en {product_url}")
+            return
+
+        soup = BeautifulSoup(response.text, 'html.parser')
 
         script_tag = soup.find('script', {
             'type': 'application/json',
             'data-product-inventory-json': True
         })
 
-        if script_tag:
-            inventory_data = json.loads(script_tag.string)
+        if not script_tag:
+            print(f"No inventory JSON en {product_url}")
+            return
 
-            for key, value in inventory_data['inventory'].items():
-                inventory_id = key
-                inventory_quantity = value.get('inventory_quantity', 'N/A')
-                product_data.append({
-                    'product_url': product_url,
-                    'inventory_id': inventory_id,
-                    'inventory_quantity': inventory_quantity
-                })
+        inventory_data = json.loads(script_tag.string)
+
+        for key, value in inventory_data.get('inventory', {}).items():
+            inventory_id = key
+            inventory_quantity = value.get('inventory_quantity', 0)
+
+            product_data.append({
+                'product_url': product_url,
+                'product_name': handle,
+                'inventory_id': inventory_id,
+                'inventory_quantity': inventory_quantity
+            })
+
     except Exception as e:
-        print(f"Error al procesar {product_url}: {e}")
+        print(f"Error al procesar {product.get('handle')}: {e}")
 
-# Función principal para realizar scraping y guardar Excel
-def scrape_and_save_excel():
+
+# -----------------------------
+# FUNCIÓN PRINCIPAL
+# -----------------------------
+def scrape_and_save():
     product_data = []
 
+    print("Obteniendo productos...")
     products = get_all_products()
 
-    for product in products:
-        handle = product['handle']
-        product_url = f"https://lebump.com.mx/products/{handle}"
-        extract_inventory(product_url, product_data)
+    print(f"Total productos encontrados: {len(products)}")
 
+    for i, product in enumerate(products):
+        print(f"Procesando {i+1}/{len(products)}: {product['handle']}")
+
+        extract_inventory(product, product_data)
+
+        time.sleep(0.5)  # evitar bloqueos
+
+    # Convertir a DataFrame
     df_new = pd.DataFrame(product_data)
 
-    timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M')
-    file_name = f"inventario_lebump_{timestamp}.xlsx"
+    # Agregar timestamp
+    df_new['timestamp'] = datetime.now()
 
-    # Guardar en carpeta actual (GitHub Actions lo subirá como artifact)
-    output_path = os.path.join(file_name)
-    df_new.to_excel(output_path, index=False)
+    # Guardar en DB
+    save_to_db(df_new)
 
-    print(f"Datos guardados en {output_path}")
+    print("✅ Datos guardados en SQLite (inventario.db)")
 
+
+# -----------------------------
+# EJECUCIÓN
+# -----------------------------
 if __name__ == "__main__":
-    scrape_and_save_excel()
+    scrape_and_save()
