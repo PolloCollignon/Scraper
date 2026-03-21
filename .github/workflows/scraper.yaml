@@ -2,8 +2,8 @@ name: Ejecutar scraper dos veces al día
 
 on:
   schedule:
-    - cron: "0 17 * * *"  # 11:00 a.m. CDMX
-    - cron: "0 20 * * *"  # 2:00 p.m. CDMX
+    - cron: "0 17 * * *"
+    - cron: "0 20 * * *"
   workflow_dispatch:
 
 jobs:
@@ -22,7 +22,7 @@ jobs:
       - name: Instalar dependencias
         run: pip install -r requirements.txt
 
-      # 🔥 DESCARGAR DB ANTERIOR (CLAVE)
+      # 🔥 Descargar DB anterior
       - name: Download previous DB
         uses: actions/download-artifact@v4
         with:
@@ -30,10 +30,14 @@ jobs:
           path: .
         continue-on-error: true
 
+      # 🔥 FIX REAL (sin multilinea complicada)
+      - name: Fix DB path
+        run: mv inventario-db/inventario.db inventario.db || true
+
       - name: Ejecutar el script
         run: python scraper.py
 
-      # 🔥 SUBIR DB ACTUALIZADA
+      # 🔥 Subir DB actualizada
       - name: Upload DB
         uses: actions/upload-artifact@v4
         with:
