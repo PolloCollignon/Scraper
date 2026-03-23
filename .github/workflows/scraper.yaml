@@ -3,7 +3,7 @@ name: Ejecutar scraper dos veces al día
 on:
   schedule:
     - cron: "0 17 * * *"
-    - cron: "0 20 * * *"
+    - cron: "0 22 * * *"
   workflow_dispatch:
 
 permissions:
